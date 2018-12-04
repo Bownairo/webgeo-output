@@ -1,0 +1,7 @@
+[package]
+name = "webgeo-output"
+version = "0.1.0"
+authors = ["Bownairo <eerokelly@gmail.com>"]
+edition = "2018"
+
+[dependencies]
