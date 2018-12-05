@@ -1,5 +1,3 @@
-use std::cell::RefCell;
-
 pub struct Points {
     x: Vec<i32>,
     y: Vec<i32>,
@@ -13,6 +11,11 @@ impl Points {
     pub fn add(&mut self, x: i32, y: i32) {
         self.x.push(x);
         self.y.push(y);
+    }
+
+    pub fn pop(&mut self) {
+        self.x.pop();
+        self.y.pop();
     }
 
     pub fn len(&self) -> u32 {
@@ -49,8 +52,11 @@ impl Segs {
         self.y.push(y2);
     }
 
-    pub fn pop(&mut self) -> ((i32, i32), (i32, i32)) {
-        ((self.x.pop().unwrap(), self.x.pop().unwrap()), (self.y.pop().unwrap(), self.y.pop().unwrap()))
+    pub fn pop(&mut self) {
+        self.x.pop();
+        self.x.pop();
+        self.y.pop();
+        self.y.pop();
     }
 
     pub fn len(&self) -> u32 {
@@ -66,26 +72,67 @@ impl Segs {
     }
 }
 
+enum Event {
+    PushPoint{x: i32, y: i32},
+    PopPoint,
+    PushSeg{x1: i32, y1: i32, x2: i32, y2: i32},
+    PopSeg,
+    PushRay{x1: i32, y1: i32, x2: i32, y2: i32},
+    PopRay,
+}
+
+struct EventQueue(Vec<Event>);
+
+impl EventQueue {
+    fn new() -> Self {
+        EventQueue (Vec::new())
+    }
+
+    fn push_point(&mut self, x: i32, y: i32) {
+        self.0.push(Event::PushPoint { x, y });
+    }
+
+    fn pop_point(&mut self) {
+        self.0.push(Event::PopPoint);
+    }
+
+    fn push_seg(&mut self, x1: i32, y1: i32, x2: i32, y2: i32) {
+        self.0.push(Event::PushSeg { x1, y1, x2, y2 });
+    }
+
+    fn pop_seg(&mut self) {
+        self.0.push(Event::PopSeg);
+    }
+
+    fn push_ray(&mut self, x1: i32, y1: i32, x2: i32, y2: i32) {
+        self.0.push(Event::PushRay { x1, y1, x2, y2 });
+    }
+
+    fn pop_ray(&mut self) {
+        self.0.push(Event::PopRay);
+    }
+}
+
 pub struct Output {
     points: Points,
     segs: Segs,
     rays: Segs,
     stepping: bool,
-    halt: RefCell<u8>,
+    events: EventQueue,
+    pointer: usize,
 }
 
 impl Output {
     pub fn new() -> Self {
-        Output { points: Points::new(), segs: Segs::new(), rays: Segs::new(), stepping: true, halt: RefCell::new(0) }
-    }
-
-    pub fn halt(&self) -> *const u8 {
-        &*self.halt.borrow()
+        Output { points: Points::new(), segs: Segs::new(), rays: Segs::new(), stepping: true, events: EventQueue::new(), pointer: 0 }
     }
 
     pub fn points_add(&mut self, x: i32, y: i32) {
-        self.points.add(x, y);
-        self.spin();
+        self.events.push_point(x, y);
+    }
+
+    pub fn points_pop(&mut self) {
+        self.events.pop_point();
     }
 
     pub fn points_len(&self) -> u32 {
@@ -100,20 +147,12 @@ impl Output {
         self.points.y()
     }
 
-    pub fn points_condense(&self) -> Vec<(i32, i32)> {
-        self.points.condense()
-    }
-
     pub fn segs_add(&mut self, x1: i32, y1: i32, x2: i32, y2: i32) {
-        let ret = self.segs.add(x1, y1, x2, y2);
-        self.spin();
-        ret
+        self.events.push_seg(x1, y1, x2, y2);
     }
 
-    pub fn segs_pop(&mut self) -> ((i32, i32), (i32, i32)) {
-        let ret = self.segs.pop();
-        self.spin();
-        ret
+    pub fn segs_pop(&mut self) {
+        self.events.pop_seg();
     }
 
     pub fn segs_len(&self) -> u32 {
@@ -129,15 +168,11 @@ impl Output {
     }
 
     pub fn rays_add(&mut self, x1: i32, y1: i32, x2: i32, y2: i32) {
-        let ret = self.rays.add(x1, y1, x2, y2);
-        self.spin();
-        ret
+        self.events.push_ray(x1, y1, x2, y2);
     }
 
-    pub fn rays_pop(&mut self) -> ((i32, i32), (i32, i32)) {
-        let ret = self.rays.pop();
-        self.spin();
-        ret
+    pub fn rays_pop(&mut self) {
+        self.events.pop_ray();
     }
 
     pub fn rays_len(&self) -> u32 {
@@ -152,10 +187,20 @@ impl Output {
         self.rays.y()
     }
 
-    fn spin(&self) {
-        if self.stepping {
-            while *self.halt.borrow() == 0 {
-            }
+    pub fn step(&mut self) {
+        match self.events.0.get(self.pointer).unwrap() {
+            Event::PushPoint{x, y} => self.points.add(*x, *y),
+            Event::PopPoint => self.points.pop(),
+            Event::PushSeg{x1, y1, x2, y2} => self.segs.add(*x1, *y1, *x2, *y2),
+            Event::PopSeg => self.segs.pop(),
+            Event::PushRay{x1, y1, x2, y2} => self.rays.add(*x1, *y1, *x2, *y2),
+            Event::PopRay => self.rays.pop(),
         }
+
+        self.pointer += 1;
+    }
+
+    pub fn done(&mut self) -> bool {
+        self.pointer == self.events.0.len() - 1
     }
 }
