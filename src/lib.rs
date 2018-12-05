@@ -201,6 +201,6 @@ impl Output {
     }
 
     pub fn done(&mut self) -> bool {
-        self.pointer == self.events.0.len() - 1
+        self.pointer == self.events.0.len()
     }
 }
