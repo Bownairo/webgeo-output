@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 pub struct Points {
     x: Vec<i32>,
     y: Vec<i32>,
@@ -65,12 +67,12 @@ pub struct Output {
     pub segs: Segs,
     pub rays: Segs,
     stepping: bool,
-    halt: u8,
+    halt: RefCell<u8>,
 }
 
 impl Output {
     pub fn new() -> Self {
-        Output { points: Points::new(), segs: Segs::new(), rays: Segs::new(), stepping: false, halt: 0 }
+        Output { points: Points::new(), segs: Segs::new(), rays: Segs::new(), stepping: false, halt: RefCell::new(0) }
     }
 
     pub fn stepping(&self) -> bool {
@@ -78,6 +80,6 @@ impl Output {
     }
 
     pub fn halt(&self) -> *const u8 {
-        &self.halt
+        &*self.halt.borrow()
     }
 }
